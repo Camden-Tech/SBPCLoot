@@ -637,11 +637,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
 
         // Check which entries in this section are unlocked
         boolean targetUnlocked = SbpcAPI.isEntryUnlocked(uuid, entryId);
+        boolean targetCompleted = SbpcAPI.isEntryCompleted(uuid, entryId);
 
         // If any prior entry is not unlocked, the player hasn't progressed that far yet.
         for (int j = 0; j < idx; j++) {
             String priorId = orderedEntries.get(j);
-            if (!SbpcAPI.isEntryUnlocked(uuid, priorId)) {
+            if (!SbpcAPI.isEntryCompleted(uuid, priorId)) {
                 // They haven't reached this entry in the section order.
                 player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
                 return;
@@ -650,9 +651,15 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
 
         // At this point, all prior entries are unlocked.
 
-        if (targetUnlocked) {
+        if (targetCompleted) {
             // They've already completed this specific entry
             player.sendMessage(msgTabletAlreadyCompletedEntry.replace("{entry}", entryName));
+            return;
+        }
+
+        if (!targetUnlocked) {
+            // The player hasn't yet unlocked this entry (still on a prior one)
+            player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
             return;
         }
 
