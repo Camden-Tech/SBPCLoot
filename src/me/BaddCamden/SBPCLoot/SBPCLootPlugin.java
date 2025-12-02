@@ -25,6 +25,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -637,12 +638,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
 
         // Check which entries in this section are unlocked
         boolean targetUnlocked = SbpcAPI.isEntryUnlocked(uuid, entryId);
-        boolean targetCompleted = SbpcAPI.isEntryCompleted(uuid, entryId);
+        boolean targetCompleted = isEntryCompleted(uuid, entryId);
 
         // If any prior entry is not unlocked, the player hasn't progressed that far yet.
         for (int j = 0; j < idx; j++) {
             String priorId = orderedEntries.get(j);
-            if (!SbpcAPI.isEntryCompleted(uuid, priorId)) {
+            if (!isEntryCompleted(uuid, priorId)) {
                 // They haven't reached this entry in the section order.
                 player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
                 return;
@@ -672,6 +673,46 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
 
         // Consume one tablet (stack size is 1 by design)
         item.setAmount(item.getAmount() - 1);
+    }
+
+    /**
+     * Compatibility helper for determining if a progression entry is complete.
+     *
+     * The base SBPC API does not expose this at the time of writing, so we try
+     * to invoke newer APIs reflectively and fall back to PlayerProgress where
+     * available. As a last resort, treat "unlocked" as "completed" so tablets
+     * still function in older builds without the method.
+     */
+    private boolean isEntryCompleted(UUID uuid, String entryId) {
+        // 1) Try a direct SbpcAPI.isEntryCompleted(...) if it exists.
+        try {
+            Method apiMethod = SbpcAPI.class.getMethod("isEntryCompleted", UUID.class, String.class);
+            Object result = apiMethod.invoke(null, uuid, entryId);
+            if (result instanceof Boolean b) {
+                return b;
+            }
+        } catch (NoSuchMethodException ignored) {
+            // continue to fallback
+        } catch (ReflectiveOperationException e) {
+            getLogger().warning("Failed to call SbpcAPI.isEntryCompleted: " + e.getMessage());
+        }
+
+        // 2) Try PlayerProgress#isEntryCompleted(String) if it exists.
+        try {
+            Object progress = SbpcAPI.getProgress(uuid);
+            Method progressMethod = progress.getClass().getMethod("isEntryCompleted", String.class);
+            Object result = progressMethod.invoke(progress, entryId);
+            if (result instanceof Boolean b) {
+                return b;
+            }
+        } catch (NoSuchMethodException ignored) {
+            // continue to fallback
+        } catch (ReflectiveOperationException e) {
+            getLogger().warning("Failed to call PlayerProgress.isEntryCompleted: " + e.getMessage());
+        }
+
+        // 3) Fallback: treat unlocked as completed when no completion API exists.
+        return SbpcAPI.isEntryUnlocked(uuid, entryId);
     }
 
     private void handleUseScroll(Player player, ItemStack item) {
