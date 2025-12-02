@@ -1,0 +1,43 @@
+items:
+  tablet:
+    name: "&6Ancient Tablet"
+    lore:
+      - "&7An ancient tablet humming with power."
+      - "&8Section: &e{section}"
+      - "&8Entry: &b{entry}"
+      - "&7Right-click while you are on"
+      - "&7this part of the challenge to"
+      - "&7instantly complete that entry."
+  scroll:
+    name: "&dAncient Scroll"
+    lore:
+      - "&7A powerful scroll from a bygone age."
+      - "&8Section: &e{section}"
+      - "&7Right-click while you are on this"
+      - "&7section to complete it instantly."
+  reroll:
+    tablet-name: "&6Ancient Tablet (Rerolled)"
+    scroll-name: "&dAncient Scroll (Rerolled)"
+
+messages:
+  tablet:
+    dormant: "&cThis tablet's magic seems dormant."
+    progress-unknown: "&cYour progression could not be determined."
+    unknown-section: "&cThis tablet refers to an unknown section."
+    not-reached-section: "&eYou have not yet reached the section &e{section}&e. The tablet does nothing."
+    beyond-section: "&7You have already progressed beyond &e{section}&7. The tablet has no effect."
+    already-completed-entry: "&7You have already completed &b{entry}&7. The tablet has no effect."
+    no-current-entry: "&cYou cannot use this tablet right now."
+    not-on-entry: "&eYou are not currently on &b{entry}&e. The tablet's magic remains dormant."
+    success: "&6The Ancient Tablet crumbles as knowledge of &b{entry}&6 floods your mind!"
+
+  scroll:
+    dormant: "&cThis scroll's magic seems dormant."
+    progress-unknown: "&cYour progression could not be determined."
+    unknown-section: "&cThis scroll refers to an unknown section."
+    not-reached-section: "&eYou have not yet reached the section &e{section}&e."
+    beyond-section: "&7You have already surpassed the section &e{section}&7."
+    success: "&dThe Ancient Scroll bursts into light as the section &e{section}&d is completed!"
+
+  fishing:
+    found-tablet: "&6You fish up an &eAncient Tablet&6!"

@@ -1,0 +1,8 @@
+name: SBPCLoot
+main: me.BaddCamden.SBPCLoot.SBPCLootPlugin
+version: 0.0.1
+api-version: 1.21
+author: BaddCamden
+depend:
+  - SBPC
+description: Loot-based progression helpers (Ancient Tablets & Scrolls) for SBPC.
