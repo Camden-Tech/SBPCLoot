@@ -279,15 +279,19 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         }
 
         List<String> allSectionIds = new ArrayList<>(sectionsRoot.getKeys(false));
-        allSectionIds.sort(Comparator.naturalOrder()); // consistent order, though SBPC has its own index
+        allSectionIds.sort(Comparator
+                .comparingInt((String id) -> {
+                    int idx = SbpcAPI.getSectionIndex(id);
+                    return idx < 0 ? Integer.MAX_VALUE : idx;
+                })
+                .thenComparing(Comparator.naturalOrder()));
 
         // Build list of sections we can skip (exclude First Steps)
         List<String> skippableSectionIds = new ArrayList<>();
-        int index = 0;
         for (String sectionId : allSectionIds) {
             ConfigurationSection sectionCfg = sectionsRoot.getConfigurationSection(sectionId);
             if (sectionCfg == null) continue;
-            sectionIndexMap.put(sectionId, index++);
+            sectionIndexMap.put(sectionId, SbpcAPI.getSectionIndex(sectionId));
 
             String displayName = sectionCfg.getString("name", sectionId);
             sectionDisplayNames.put(sectionId, displayName);
