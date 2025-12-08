@@ -629,16 +629,6 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             return;
         }
 
-        targetUnlocked = SbpcAPI.isEntryUnlocked(uuid, entryId);
-        targetCompleted = isEntryCompleted(uuid, entryId);
-
-        if (targetCompleted) {
-            // They've already completed this specific entry
-            debugTablet(player, "target-already-completed", entryId, sectionId, null, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
-            player.sendMessage(msgTabletAlreadyCompletedEntry.replace("{entry}", entryName));
-            return;
-        }
-
         currentEntryId = getCurrentEntryId(uuid);
         if (currentEntryId == null) {
             debugTablet(player, "no-current-entry", entryId, sectionId, null, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
@@ -649,6 +639,16 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         if (!currentEntryId.equals(entryId)) {
             debugTablet(player, "not-on-target-entry", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
             player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
+            return;
+        }
+
+        targetUnlocked = SbpcAPI.isEntryUnlocked(uuid, entryId) || currentEntryId.equals(entryId);
+        targetCompleted = isEntryCompleted(uuid, entryId);
+
+        if (targetCompleted) {
+            // They've already completed this specific entry
+            debugTablet(player, "target-already-completed", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
+            player.sendMessage(msgTabletAlreadyCompletedEntry.replace("{entry}", entryName));
             return;
         }
 
