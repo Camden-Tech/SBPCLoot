@@ -629,6 +629,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             return;
         }
 
+        targetUnlocked = SbpcAPI.isEntryUnlocked(uuid, entryId);
         targetCompleted = isEntryCompleted(uuid, entryId);
 
         if (targetCompleted) {
@@ -645,17 +646,15 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             return;
         }
 
-        targetUnlocked = entryId.equals(currentEntryId) || SbpcAPI.isEntryUnlocked(uuid, entryId);
-
-        if (!targetUnlocked) {
-            // The player hasn't yet unlocked this entry (still on a prior one)
-            debugTablet(player, "entry-not-unlocked", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
+        if (!currentEntryId.equals(entryId)) {
+            debugTablet(player, "not-on-target-entry", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
             player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
             return;
         }
 
-        if (!currentEntryId.equals(entryId)) {
-            debugTablet(player, "not-on-target-entry", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
+        if (!targetUnlocked) {
+            // The player hasn't yet unlocked this entry (still on a prior one)
+            debugTablet(player, "entry-not-unlocked", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
             player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
             return;
         }
