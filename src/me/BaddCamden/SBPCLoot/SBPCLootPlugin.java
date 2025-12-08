@@ -86,8 +86,6 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     // Fishing messages
     private String msgFishingFoundTablet;
 
-    private final Map<String, List<String>> sectionEntriesOrdered = new HashMap<>();
-
     private static class WeightedEntry {
         final String sectionId;
         final String entryId;
@@ -279,15 +277,19 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         }
 
         List<String> allSectionIds = new ArrayList<>(sectionsRoot.getKeys(false));
-        allSectionIds.sort(Comparator.naturalOrder()); // consistent order, though SBPC has its own index
+        allSectionIds.sort(Comparator
+                .comparingInt((String id) -> {
+                    int idx = SbpcAPI.getSectionIndex(id);
+                    return idx < 0 ? Integer.MAX_VALUE : idx;
+                })
+                .thenComparing(Comparator.naturalOrder()));
 
         // Build list of sections we can skip (exclude First Steps)
         List<String> skippableSectionIds = new ArrayList<>();
-        int index = 0;
         for (String sectionId : allSectionIds) {
             ConfigurationSection sectionCfg = sectionsRoot.getConfigurationSection(sectionId);
             if (sectionCfg == null) continue;
-            sectionIndexMap.put(sectionId, index++);
+            sectionIndexMap.put(sectionId, SbpcAPI.getSectionIndex(sectionId));
 
             String displayName = sectionCfg.getString("name", sectionId);
             sectionDisplayNames.put(sectionId, displayName);
@@ -321,8 +323,6 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             ConfigurationSection entriesCfg = sectionCfg.getConfigurationSection("entries");
             if (entriesCfg == null) continue;
 
-            List<String> sectionOrder = new ArrayList<>();
-
             for (String entryId : entriesCfg.getKeys(false)) {
                 ConfigurationSection entryCfg = entriesCfg.getConfigurationSection(entryId);
                 if (entryCfg == null) continue;
@@ -330,9 +330,6 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
                 String entryName = entryCfg.getString("name", entryId);
                 entryDisplayNames.put(entryId, entryName);
                 entryToSectionMap.put(entryId, sectionId);
-
-                // Always track the full per-section order (even for first_steps / wood_axe)
-                sectionOrder.add(entryId);
 
                 // Skip from *weights* but still keep in ordering:
                 if (sectionId.equalsIgnoreCase("first_steps")) {
@@ -348,8 +345,6 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
                 allEntryIdsInOrder.add(entryId);
                 allEntrySectionIdsInOrder.add(sectionId);
             }
-
-            sectionEntriesOrdered.put(sectionId, sectionOrder);
         }
 
         int nEntries = allEntryIdsInOrder.size();
@@ -625,36 +620,27 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             return;
         }
 
-        // 3) Player is in this section and it is not complete.
-        //    Now determine if they are currently ON this entry using per-section ordering.
-        List<String> orderedEntries = sectionEntriesOrdered.get(sectionId);
-        if (orderedEntries == null || !orderedEntries.contains(entryId)) {
-            // Section exists but we couldn't resolve this entry in the section ordering.
-            player.sendMessage(msgTabletDormant);
-            return;
-        }
-
-        int idx = orderedEntries.indexOf(entryId);
-
-        // Check which entries in this section are unlocked
         boolean targetUnlocked = SbpcAPI.isEntryUnlocked(uuid, entryId);
         boolean targetCompleted = isEntryCompleted(uuid, entryId);
-
-        // If any prior entry is not unlocked, the player hasn't progressed that far yet.
-        for (int j = 0; j < idx; j++) {
-            String priorId = orderedEntries.get(j);
-            if (!isEntryCompleted(uuid, priorId)) {
-                // They haven't reached this entry in the section order.
-                player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
-                return;
-            }
-        }
-
-        // At this point, all prior entries are unlocked.
 
         if (targetCompleted) {
             // They've already completed this specific entry
             player.sendMessage(msgTabletAlreadyCompletedEntry.replace("{entry}", entryName));
+            return;
+        }
+
+        String currentEntryId = getCurrentEntryId(uuid);
+        String currentEntrySectionId = entryToSectionMap.get(currentEntryId);
+
+        if (currentEntryId == null && !targetUnlocked) {
+            player.sendMessage(msgTabletNoCurrentEntry);
+            return;
+        }
+
+        if (currentEntryId != null
+                && sectionId.equals(currentEntrySectionId)
+                && !currentEntryId.equals(entryId)) {
+            player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
             return;
         }
 
@@ -664,8 +650,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             return;
         }
 
-        // All earlier entries are unlocked, and this entry isn't unlocked yet:
-        // treat this as "the current entry" and skip it via a big time skip.
+        // Player is currently on this entry: skip it via a big time skip.
         SbpcAPI.applyExternalTimeSkip(uuid, 1_000_000, 0.0,
                 "SBPCLoot Ancient Tablet: " + entryId);
 
@@ -713,6 +698,55 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
 
         // 3) Fallback: treat unlocked as completed when no completion API exists.
         return SbpcAPI.isEntryUnlocked(uuid, entryId);
+    }
+
+    private String getCurrentEntryId(UUID uuid) {
+        // 1) Use the SBPC API's current entry helper (public signature in SBPC).
+        try {
+            Method apiMethod = SbpcAPI.class.getMethod("getCurrentEntryId", UUID.class);
+            Object result = apiMethod.invoke(null, uuid);
+            if (result instanceof String s) {
+                return s;
+            }
+        } catch (NoSuchMethodException ignored) {
+            // continue to fallback
+        } catch (ReflectiveOperationException e) {
+            getLogger().warning("Failed to call SbpcAPI.getCurrentEntryId(UUID): " + e.getMessage());
+        }
+
+        // 2) Try PlayerProgress#getCurrentEntryId() on the player progress object.
+        try {
+            Object progress = SbpcAPI.getProgress(uuid);
+            Method progressMethod = progress.getClass().getMethod("getCurrentEntryId");
+            Object result = progressMethod.invoke(progress);
+            if (result instanceof String s) {
+                return s;
+            }
+        } catch (NoSuchMethodException ignored) {
+            // continue to fallback
+        } catch (ReflectiveOperationException e) {
+            getLogger().warning("Failed to call PlayerProgress.getCurrentEntryId: " + e.getMessage());
+        }
+
+        // 3) Try PlayerProgress#getCurrentEntry() and read its id.
+        try {
+            Object progress = SbpcAPI.getProgress(uuid);
+            Method progressMethod = progress.getClass().getMethod("getCurrentEntry");
+            Object entry = progressMethod.invoke(progress);
+            if (entry != null) {
+                Method getId = entry.getClass().getMethod("getId");
+                Object result = getId.invoke(entry);
+                if (result instanceof String s) {
+                    return s;
+                }
+            }
+        } catch (NoSuchMethodException ignored) {
+            // continue to fallback
+        } catch (ReflectiveOperationException e) {
+            getLogger().warning("Failed to call PlayerProgress.getCurrentEntry(): " + e.getMessage());
+        }
+
+        return null;
     }
 
     private void handleUseScroll(Player player, ItemStack item) {
