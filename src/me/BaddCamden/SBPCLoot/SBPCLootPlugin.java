@@ -810,7 +810,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     private void debugTablet(Player player, String reason, String entryId, String sectionId,
                              String currentEntryId, String highestSectionId, int highestIndex,
                              int targetIndex, boolean targetUnlocked, boolean targetCompleted) {
-        getLogger().info("[TabletDebug] player=" + player.getName()
+        /*getLogger().info("[TabletDebug] player=" + player.getName()
                 + " reason=" + reason
                 + " entryId=" + entryId
                 + " sectionId=" + sectionId
@@ -819,17 +819,17 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
                 + " highestIndex=" + highestIndex
                 + " targetIndex=" + targetIndex
                 + " unlocked=" + targetUnlocked
-                + " completed=" + targetCompleted);
+                + " completed=" + targetCompleted);*/
     }
 
     private void debugScroll(Player player, String reason, String sectionId, String currentSectionId,
                              int currentIndex, int targetIndex) {
-        getLogger().info("[ScrollDebug] player=" + player.getName()
+        /*getLogger().info("[ScrollDebug] player=" + player.getName()
                 + " reason=" + reason
                 + " sectionId=" + sectionId
                 + " currentSectionId=" + currentSectionId
                 + " currentIndex=" + currentIndex
-                + " targetIndex=" + targetIndex);
+                + " targetIndex=" + targetIndex);*/
     }
 
     // ------------------------------------------------------------------------
