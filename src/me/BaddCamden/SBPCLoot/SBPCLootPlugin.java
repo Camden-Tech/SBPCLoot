@@ -583,6 +583,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         String sectionId = pdc.get(tabletSectionKey, PersistentDataType.STRING);
 
         if (entryId == null || sectionId == null) {
+            debugTablet(player, "tablet-dormant", entryId, sectionId, null, null, -1, -1, false, false);
             player.sendMessage(msgTabletDormant);
             return;
         }
@@ -592,6 +593,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         // Highest section the player has reached (including completed ones)
         String highestSectionId = SbpcAPI.getCurrentSectionId(uuid, true);
         if (highestSectionId == null) {
+            debugTablet(player, "progress-unknown", entryId, sectionId, null, null, -1, -1, false, false);
             player.sendMessage(msgTabletProgressUnknown);
             return;
         }
@@ -600,7 +602,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         Integer targetIndexObj = sectionIndexMap.get(sectionId);
         int targetIndex = (targetIndexObj == null) ? -1 : targetIndexObj;
 
+        boolean targetUnlocked = false;
+        boolean targetCompleted = false;
+        String currentEntryId = null;
+
         if (targetIndex == -1) {
+            debugTablet(player, "unknown-section", entryId, sectionId, null, highestSectionId, highestIndex, targetIndex, false, false);
             player.sendMessage(msgTabletUnknownSection);
             return;
         }
@@ -610,38 +617,45 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
 
         // 1) Player hasn't even reached this section yet
         if (highestIndex < targetIndex) {
+            debugTablet(player, "not-reached-section", entryId, sectionId, null, highestSectionId, highestIndex, targetIndex, false, false);
             player.sendMessage(msgTabletNotReachedSection.replace("{section}", sectionName));
             return;
         }
 
         // 2) Player is beyond this section or it's fully completed
         if (highestIndex > targetIndex || SbpcAPI.isSectionCompleted(uuid, sectionId)) {
+            debugTablet(player, "beyond-section-or-completed", entryId, sectionId, null, highestSectionId, highestIndex, targetIndex, false, false);
             player.sendMessage(msgTabletBeyondSection.replace("{section}", sectionName));
             return;
         }
 
-        boolean targetUnlocked = SbpcAPI.isEntryUnlocked(uuid, entryId);
-        boolean targetCompleted = isEntryCompleted(uuid, entryId);
+        targetCompleted = isEntryCompleted(uuid, entryId);
 
         if (targetCompleted) {
             // They've already completed this specific entry
+            debugTablet(player, "target-already-completed", entryId, sectionId, null, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
             player.sendMessage(msgTabletAlreadyCompletedEntry.replace("{entry}", entryName));
             return;
         }
 
-        String currentEntryId = getCurrentEntryId(uuid);
+        currentEntryId = getCurrentEntryId(uuid);
         if (currentEntryId == null) {
+            debugTablet(player, "no-current-entry", entryId, sectionId, null, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
             player.sendMessage(msgTabletNoCurrentEntry);
             return;
         }
 
-        if (!currentEntryId.equals(entryId)) {
+        targetUnlocked = entryId.equals(currentEntryId) || SbpcAPI.isEntryUnlocked(uuid, entryId);
+
+        if (!targetUnlocked) {
+            // The player hasn't yet unlocked this entry (still on a prior one)
+            debugTablet(player, "entry-not-unlocked", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
             player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
             return;
         }
 
-        if (!targetUnlocked) {
-            // The player hasn't yet unlocked this entry (still on a prior one)
+        if (!currentEntryId.equals(entryId)) {
+            debugTablet(player, "not-on-target-entry", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
             player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
             return;
         }
@@ -650,6 +664,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         SbpcAPI.applyExternalTimeSkip(uuid, 1_000_000, 0.0,
                 "SBPCLoot Ancient Tablet: " + entryId);
 
+        debugTablet(player, "success", entryId, sectionId, currentEntryId, highestSectionId, highestIndex, targetIndex, targetUnlocked, targetCompleted);
         player.sendMessage(msgTabletSuccess.replace("{entry}", entryName));
 
         // Consume one tablet (stack size is 1 by design)
@@ -748,6 +763,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
 
         String sectionId = pdc.get(scrollSectionKey, PersistentDataType.STRING);
         if (sectionId == null) {
+            debugScroll(player, "scroll-dormant", null, null, -1, -1);
             player.sendMessage(msgScrollDormant);
             return;
         }
@@ -755,6 +771,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         UUID uuid = player.getUniqueId();
         String currentSectionId = SbpcAPI.getCurrentSectionId(uuid, true);
         if (currentSectionId == null) {
+            debugScroll(player, "progress-unknown", sectionId, null, -1, -1);
             player.sendMessage(msgScrollProgressUnknown);
             return;
         }
@@ -764,6 +781,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         int targetIndex = targetIndexObj == null ? -1 : targetIndexObj;
 
         if (targetIndex == -1) {
+            debugScroll(player, "unknown-section", sectionId, currentSectionId, currentIndex, targetIndex);
             player.sendMessage(msgScrollUnknownSection);
             return;
         }
@@ -771,20 +789,48 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         String sectionName = sectionDisplayNames.getOrDefault(sectionId, sectionId);
 
         if (currentIndex < targetIndex) {
+            debugScroll(player, "not-reached-section", sectionId, currentSectionId, currentIndex, targetIndex);
             player.sendMessage(msgScrollNotReachedSection.replace("{section}", sectionName));
             return;
         }
 
         if (currentIndex > targetIndex || SbpcAPI.isSectionCompleted(uuid, sectionId)) {
+            debugScroll(player, "beyond-section-or-completed", sectionId, currentSectionId, currentIndex, targetIndex);
             player.sendMessage(msgScrollBeyondSection.replace("{section}", sectionName));
             return;
         }
 
         SbpcAPI.completeCurrentSection(uuid);
 
+        debugScroll(player, "success", sectionId, currentSectionId, currentIndex, targetIndex);
         player.sendMessage(msgScrollSuccess.replace("{section}", sectionName));
 
         item.setAmount(item.getAmount() - 1);
+    }
+
+    private void debugTablet(Player player, String reason, String entryId, String sectionId,
+                             String currentEntryId, String highestSectionId, int highestIndex,
+                             int targetIndex, boolean targetUnlocked, boolean targetCompleted) {
+        getLogger().info("[TabletDebug] player=" + player.getName()
+                + " reason=" + reason
+                + " entryId=" + entryId
+                + " sectionId=" + sectionId
+                + " currentEntryId=" + currentEntryId
+                + " highestSectionId=" + highestSectionId
+                + " highestIndex=" + highestIndex
+                + " targetIndex=" + targetIndex
+                + " unlocked=" + targetUnlocked
+                + " completed=" + targetCompleted);
+    }
+
+    private void debugScroll(Player player, String reason, String sectionId, String currentSectionId,
+                             int currentIndex, int targetIndex) {
+        getLogger().info("[ScrollDebug] player=" + player.getName()
+                + " reason=" + reason
+                + " sectionId=" + sectionId
+                + " currentSectionId=" + currentSectionId
+                + " currentIndex=" + currentIndex
+                + " targetIndex=" + targetIndex);
     }
 
     // ------------------------------------------------------------------------
