@@ -630,16 +630,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         }
 
         String currentEntryId = getCurrentEntryId(uuid);
-        String currentEntrySectionId = entryToSectionMap.get(currentEntryId);
-
-        if (currentEntryId == null && !targetUnlocked) {
+        if (currentEntryId == null) {
             player.sendMessage(msgTabletNoCurrentEntry);
             return;
         }
 
-        if (currentEntryId != null
-                && sectionId.equals(currentEntrySectionId)
-                && !currentEntryId.equals(entryId)) {
+        if (!currentEntryId.equals(entryId)) {
             player.sendMessage(msgTabletNotOnEntry.replace("{entry}", entryName));
             return;
         }
@@ -701,7 +697,21 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     }
 
     private String getCurrentEntryId(UUID uuid) {
-        // 1) Use the SBPC API's current entry helper (public signature in SBPC).
+        // 1) Try SbpcAPI.getCurrentEntryId(UUID, boolean) for compatibility with APIs
+        //    that mirror the getCurrentSectionId signature.
+        try {
+            Method apiMethod = SbpcAPI.class.getMethod("getCurrentEntryId", UUID.class, boolean.class);
+            Object result = apiMethod.invoke(null, uuid, true);
+            if (result instanceof String s) {
+                return s;
+            }
+        } catch (NoSuchMethodException ignored) {
+            // continue to fallback
+        } catch (ReflectiveOperationException e) {
+            getLogger().warning("Failed to call SbpcAPI.getCurrentEntryId(UUID, boolean): " + e.getMessage());
+        }
+
+        // 2) Try SbpcAPI.getCurrentEntryId(UUID) if available.
         try {
             Method apiMethod = SbpcAPI.class.getMethod("getCurrentEntryId", UUID.class);
             Object result = apiMethod.invoke(null, uuid);
@@ -714,7 +724,7 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             getLogger().warning("Failed to call SbpcAPI.getCurrentEntryId(UUID): " + e.getMessage());
         }
 
-        // 2) Try PlayerProgress#getCurrentEntryId() on the player progress object.
+        // 3) Try PlayerProgress#getCurrentEntryId() on the player progress object.
         try {
             Object progress = SbpcAPI.getProgress(uuid);
             Method progressMethod = progress.getClass().getMethod("getCurrentEntryId");
@@ -726,24 +736,6 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             // continue to fallback
         } catch (ReflectiveOperationException e) {
             getLogger().warning("Failed to call PlayerProgress.getCurrentEntryId: " + e.getMessage());
-        }
-
-        // 3) Try PlayerProgress#getCurrentEntry() and read its id.
-        try {
-            Object progress = SbpcAPI.getProgress(uuid);
-            Method progressMethod = progress.getClass().getMethod("getCurrentEntry");
-            Object entry = progressMethod.invoke(progress);
-            if (entry != null) {
-                Method getId = entry.getClass().getMethod("getId");
-                Object result = getId.invoke(entry);
-                if (result instanceof String s) {
-                    return s;
-                }
-            }
-        } catch (NoSuchMethodException ignored) {
-            // continue to fallback
-        } catch (ReflectiveOperationException e) {
-            getLogger().warning("Failed to call PlayerProgress.getCurrentEntry(): " + e.getMessage());
         }
 
         return null;
