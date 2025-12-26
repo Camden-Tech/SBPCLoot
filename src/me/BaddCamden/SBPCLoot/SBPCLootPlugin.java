@@ -91,6 +91,13 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         final String entryId;
         final double weight;
 
+        /**
+         * Creates a weighted progression entry so tablets know which SBPC entry they skip.
+         *
+         * @param sectionId owning section identifier
+         * @param entryId   progression entry identifier
+         * @param weight    selection weight for randomization
+         */
         WeightedEntry(String sectionId, String entryId, double weight) {
             this.sectionId = sectionId;
             this.entryId = entryId;
@@ -102,6 +109,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         final String sectionId;
         final double weight;
 
+        /**
+         * Creates a weighted section so scrolls can complete an entire SBPC section at once.
+         *
+         * @param sectionId section identifier in SBPC progression
+         * @param weight    selection weight for randomization
+         */
         WeightedSection(String sectionId, double weight) {
             this.sectionId = sectionId;
             this.weight = weight;
@@ -151,6 +164,10 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             "minecraft:archaeology/trail_ruins_common",
             "minecraft:archaeology/trail_ruins_rare"
     );
+    /**
+     * Bootstraps the plugin by wiring config defaults, ensuring SBPC is available, loading
+     * progression weights, registering event listeners, and exposing crafting recipes.
+     */
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -182,11 +199,23 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
                 " skippable entries and " + weightedSections.size() + " skippable sections.");
     }
 
+    /**
+     * Translates ampersand-based color codes into Bukkit ChatColor codes so text renders correctly in-game.
+     *
+     * @param s raw string containing optional color placeholders
+     * @return colored string, or empty string when the input is null
+     */
     private String color(String s) {
         if (s == null) return "";
         return ChatColor.translateAlternateColorCodes('&', s);
     }
 
+    /**
+     * Applies {@link #color(String)} to every element in a list while guarding against null inputs.
+     *
+     * @param list source list, possibly null
+     * @return new list with color codes translated
+     */
     private List<String> colorList(List<String> list) {
         List<String> out = new ArrayList<>();
         if (list == null) return out;
@@ -196,6 +225,10 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         return out;
     }
 
+    /**
+     * Reloads all configurable names, lore, and messages from the plugin's config.yml file.
+     * This allows the plugin to pick up localization or text tweaks without touching code.
+     */
     private void reloadSettings() {
         FileConfiguration cfg = getConfig();
 
@@ -253,6 +286,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     // SBPC progression parsing & weights
     // ------------------------------------------------------------------------
 
+    /**
+     * Parses SBPC's progression config to populate weighted sections and entries used when
+     * generating tablets and scrolls. This keeps loot aligned with progression ordering.
+     *
+     * @param sbpcPlugin the SBPC plugin instance used to locate its configuration
+     */
     private void loadSbpcProgressionWeights(Plugin sbpcPlugin) {
         weightedEntries.clear();
         weightedSections.clear();
@@ -368,6 +407,10 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     // Recipes: reroll tablets/scrolls
     // ------------------------------------------------------------------------
 
+    /**
+     * Registers shapeless crafting recipes that allow players to reroll tablets or scrolls
+     * by combining three of the same item type.
+     */
     private void registerRecipes() {
         // Reroll Ancient Tablet: 3 tablets -> 1 tablet with new random entry mapping
         ItemStack baseTablet = new ItemStack(Material.PAPER, 1);
@@ -398,6 +441,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     // ------------------------------------------------------------------------
     // Item creation & detection
     // ------------------------------------------------------------------------
+    /**
+     * Builds a new Ancient Tablet item with persistent data marking which entry and section it should skip.
+     * Chooses the entry using the weighted configuration parsed from SBPC.
+     *
+     * @return a fully tagged tablet, or a fallback paper item if no entries are available
+     */
     private ItemStack createRandomTablet() {
         WeightedEntry picked = pickRandomEntry();
         if (picked == null) {
@@ -437,6 +486,11 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     }
 
 
+    /**
+     * Builds a new Ancient Scroll item that will complete an entire SBPC section when used.
+     *
+     * @return a fully tagged scroll, or a fallback enchanted book if no sections are available
+     */
     private ItemStack createRandomScroll() {
         WeightedSection picked = pickRandomSection();
         if (picked == null) {
@@ -472,6 +526,11 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     }
 
 
+    /**
+     * Chooses a random progression entry using the weighted list derived from SBPC configuration.
+     *
+     * @return chosen weighted entry, or null when no entries exist
+     */
     private WeightedEntry pickRandomEntry() {
         if (weightedEntries.isEmpty() || totalEntryWeight <= 0.0) return null;
         double r = ThreadLocalRandom.current().nextDouble() * totalEntryWeight;
@@ -484,6 +543,11 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         return weightedEntries.get(weightedEntries.size() - 1); // fallback
     }
 
+    /**
+     * Chooses a random section using the weighted list derived from SBPC configuration.
+     *
+     * @return chosen weighted section, or null when no sections exist
+     */
     private WeightedSection pickRandomSection() {
         if (weightedSections.isEmpty() || totalSectionWeight <= 0.0) return null;
         double r = ThreadLocalRandom.current().nextDouble() * totalSectionWeight;
@@ -497,6 +561,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     }
 
     
+    /**
+     * Determines whether an ItemStack is one of this plugin's Ancient Tablets via type and PDC marker.
+     *
+     * @param stack candidate item
+     * @return true when the item is a tagged tablet
+     */
     private boolean isAncientTablet(ItemStack stack) {
         if (stack == null || stack.getType() != Material.PAPER) return false;
         ItemMeta meta = stack.getItemMeta();
@@ -505,6 +575,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         return pdc.has(tabletKey, PersistentDataType.BYTE);
     }
 
+    /**
+     * Determines whether an ItemStack is one of this plugin's Ancient Scrolls via type and PDC marker.
+     *
+     * @param stack candidate item
+     * @return true when the item is a tagged scroll
+     */
     private boolean isAncientScroll(ItemStack stack) {
         if (stack == null || stack.getType() != Material.ENCHANTED_BOOK) return false;
         ItemMeta meta = stack.getItemMeta();
@@ -517,6 +593,10 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     // Crafting rerolls (3 tablets -> 1 tablet, 3 scrolls -> 1 scroll)
     // ------------------------------------------------------------------------
 
+    /**
+     * Validates reroll crafting recipes to ensure only genuine tablets or scrolls are accepted
+     * and replaces the result with a freshly randomized item.
+     */
     @EventHandler
     public void onPrepareRerollCraft(PrepareItemCraftEvent event) {
         Recipe recipe = event.getRecipe();
@@ -541,6 +621,14 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * Confirms that a crafting matrix contains exactly three non-air items and that all of them
+     * are either tablets or scrolls depending on the requested type.
+     *
+     * @param matrix 3x3 crafting grid contents
+     * @param tablets true to validate tablets, false for scrolls
+     * @return true when the grid matches expectations
+     */
     private boolean areExactlyThree(ItemStack[] matrix, boolean tablets) {
         int count = 0;
         for (ItemStack stack : matrix) {
@@ -556,6 +644,10 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     // Using Tablets & Scrolls (right-click)
     // ------------------------------------------------------------------------
 
+    /**
+     * Detects right-click interactions and routes them to tablet or scroll handling when
+     * the player is holding one of the custom items in their main hand.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onUseTabletOrScroll(PlayerInteractEvent event) {
         Action action = event.getAction();
@@ -574,6 +666,13 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
             handleUseScroll(player, item);
         }
     }
+    /**
+     * Applies an Ancient Tablet to skip the player's current SBPC entry when the tablet's
+     * metadata matches the active progression point.
+     *
+     * @param player player using the tablet
+     * @param item   tablet stack being consumed
+     */
     private void handleUseTablet(Player player, ItemStack item) {
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return;
@@ -671,12 +770,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     }
 
     /**
-     * Compatibility helper for determining if a progression entry is complete.
+     * Determines whether a specific SBPC entry is complete for a player, probing multiple API
+     * signatures for backwards compatibility and falling back to unlocked state when necessary.
      *
-     * The base SBPC API does not expose this at the time of writing, so we try
-     * to invoke newer APIs reflectively and fall back to PlayerProgress where
-     * available. As a last resort, treat "unlocked" as "completed" so tablets
-     * still function in older builds without the method.
+     * @param uuid    target player
+     * @param entryId progression entry to check
+     * @return true when the entry is considered completed
      */
     private boolean isEntryCompleted(UUID uuid, String entryId) {
         // 1) Try a direct SbpcAPI.isEntryCompleted(...) if it exists.
@@ -710,6 +809,12 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         return SbpcAPI.isEntryUnlocked(uuid, entryId);
     }
 
+    /**
+     * Resolves the player's current SBPC entry using whichever API variant is available.
+     *
+     * @param uuid target player
+     * @return the active entry id, or null if it cannot be determined
+     */
     private String getCurrentEntryId(UUID uuid) {
         // 1) Try SbpcAPI.getCurrentEntryId(UUID, boolean) for compatibility with APIs
         //    that mirror the getCurrentSectionId signature.
@@ -755,6 +860,13 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         return null;
     }
 
+    /**
+     * Applies an Ancient Scroll to complete the target SBPC section when the player is currently
+     * progressing within that section and has not already surpassed it.
+     *
+     * @param player player using the scroll
+     * @param item   scroll stack being consumed
+     */
     private void handleUseScroll(Player player, ItemStack item) {
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return;
@@ -807,6 +919,10 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         item.setAmount(item.getAmount() - 1);
     }
 
+    /**
+     * Optional debug hook for tracing tablet usage scenarios; logging is intentionally commented out
+     * to avoid spam but can be enabled during troubleshooting.
+     */
     private void debugTablet(Player player, String reason, String entryId, String sectionId,
                              String currentEntryId, String highestSectionId, int highestIndex,
                              int targetIndex, boolean targetUnlocked, boolean targetCompleted) {
@@ -822,6 +938,9 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
                 + " completed=" + targetCompleted);*/
     }
 
+    /**
+     * Optional debug hook for tracing scroll usage scenarios; logging can be toggled on when needed.
+     */
     private void debugScroll(Player player, String reason, String sectionId, String currentSectionId,
                              int currentIndex, int targetIndex) {
         /*getLogger().info("[ScrollDebug] player=" + player.getName()
@@ -836,6 +955,10 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
     // Loot: chests, archaeology, fishing, mobs, dragon
     // ------------------------------------------------------------------------
 
+    /**
+     * Injects tablets and scrolls into vanilla loot tables for structure chests and archaeology
+     * loot based on configured drop chances.
+     */
     @EventHandler
     public void onLootGenerate(LootGenerateEvent event) {
         LootTable table = event.getLootTable();
@@ -874,6 +997,9 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * Adds a chance for fishing to yield an Ancient Tablet, influenced by Luck of the Sea enchantment.
+     */
     @EventHandler
     public void onFishing(PlayerFishEvent event) {
         if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH) return;
@@ -910,6 +1036,9 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * Grants a small chance for common hostile mobs to drop an Ancient Tablet upon death.
+     */
     @EventHandler
     public void onMobDropsTablet(EntityDeathEvent event) {
         EntityType type = event.getEntityType();
@@ -926,6 +1055,9 @@ public class SBPCLootPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * Guarantees that the Ender Dragon drops an Ancient Scroll when defeated.
+     */
     @EventHandler
     public void onDragonDropsScroll(EntityDeathEvent event) {
         if (event.getEntityType() != EntityType.ENDER_DRAGON) return;
